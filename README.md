@@ -11,5 +11,5 @@ Készítsen CPU sugárkövetés felhasználásával lehallgatástervező program
 4. A lehallgatás érzékenységét a szürke alapszínhez hozzáadjuk, az első lehallgatóra piros árnyalatokkal, a másodikra zölddel, a harmadikra kékkel. Az érzékenység a takart pontokban zérus.
 
 5. A lehallgatók interaktívan áthelyezhetők. A bal egérgomb lenyomására, a kurzor alatt látható 3D ponthoz megkeressük a legközelebbi lehallgatót, annak pozícióját a megtalált pontra állítjuk, az irányát pedig a felület normálvektorára.
+![image](https://user-images.githubusercontent.com/42652185/230767145-fa6b8ae9-00b2-4057-84dc-f2d35f56a084.png)
 
-hazi2
