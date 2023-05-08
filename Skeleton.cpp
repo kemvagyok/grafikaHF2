@@ -18,8 +18,8 @@
 //
 // NYILATKOZAT
 // ---------------------------------------------------------------------------------------------
-// Nev    : SAGI BENEDEK
-// Neptun : ECSGGY
+// Nev    : ECSGGY
+// Neptun : SAGI BENEDEK
 // ---------------------------------------------------------------------------------------------
 // ezennel kijelentem, hogy a feladatot magam keszitettem, es ha barmilyen segitseget igenybe vettem vagy
 // mas szellemi termeket felhasznaltam, akkor a forrast es az atvett reszt kommentekben egyertelmuen jeloltem.
@@ -35,31 +35,31 @@
 
 // vertex shader in GLSL: It is a Raw string (C++11) since it contains new line characters
 const char* const vertexSource = R"(
-	#version 330				// Shader 3.3
-	precision highp float;		// normal floats, makes no difference on desktop computers
+	#version 330
+    precision highp float;
 
-	uniform mat4 MVP;			// uniform variable, the Model-View-Projection transformation matrix
-	layout(location = 0) in vec2 vp;	// Varying input: vp = vertex position is expected in attrib array 0
+	layout(location = 0) in vec2 cVertexPosition;	// Attrib Array 0
+	out vec2 texcoord;
 
 	void main() {
-		gl_Position = vec4(vp.x, vp.y, 0, 1) * MVP;		// transform vp from modeling space to normalized device space
+		texcoord = (cVertexPosition + vec2(1, 1))/2;							// -1,1 to 0,1
+		gl_Position = vec4(cVertexPosition.x, cVertexPosition.y, 0, 1); 		// transform to clipping space
 	}
 )";
 
 // fragment shader in GLSL
 const char* const fragmentSource = R"(
-	#version 330			// Shader 3.3
-	precision highp float;	// normal floats, makes no difference on desktop computers
-	
-	uniform vec3 color;		// uniform variable, the color of the primitive
-	out vec4 outColor;		// computed color of the current pixel
+	#version 330
+    precision highp float;
+
+	uniform sampler2D textureUnit;
+	in  vec2 texcoord;			// interpolated texture coordinates
+	out vec4 fragmentColor;		// output that goes to the raster memory as told by glBindFragDataLocation
 
 	void main() {
-		outColor = vec4(color, 1);	// computed color is the color of the primitive
+		fragmentColor = texture(textureUnit, texcoord); 
 	}
 )";
-
-
 
 struct Material {
 	vec3 ka, kd, ks;
@@ -86,31 +86,46 @@ public:
 	virtual Hit intersect(const Ray& ray) = 0;
 };
 
-struct Rectangle : public Intersectable {
-	vec3 center;
-	float radius;
+struct plane {
+	vec3 normalVector;
+	vec3 point;
+	plane(vec3 normalVector0, vec3 point0) { normalVector = normalVector0; point = point0; }
+};
 
-	Rectangle(const vec3& _center, float _radius, Material* _material) {
-		center = _center;
-		radius = _radius;
-		material = _material;
+struct RectangleOwn : public Intersectable {
+	std::vector<plane> planes;
+
+	RectangleOwn(Material* material0)
+	{
+	planes = std::vector<plane>{
+	plane(vec3(1,0,0),vec3(1,0,0)),
+	plane(vec3(-1,0,0),vec3(0,0,0)),
+	plane(vec3(0,1,0),vec3(0,1,0)),
+	plane(vec3(0,-1,0),vec3(0,0,0)),
+	plane(vec3(0,0,1),vec3(0,0,1)),
+	plane(vec3(0,0,-1),vec3(0,0,0))
+		};
+		material = material0;
 	}
 
-	Hit intersect(const Ray& ray) {
+	Hit intersect(const Ray& ray)
+	{
 		Hit hit;
-		vec3 dist = ray.start - center;
-		float a = dot(ray.dir, ray.dir);
-		float b = dot(dist, ray.dir) * 2.0f;
-		float c = dot(dist, dist) - radius * radius;
-		float discr = b * b - 4.0f * a * c;
-		if (discr < 0) return hit;
-		float sqrt_discr = sqrtf(discr);
-		float t1 = (-b + sqrt_discr) / 2.0f / a;	// t1 >= t2 for sure
-		float t2 = (-b - sqrt_discr) / 2.0f / a;
-		if (t1 <= 0) return hit;
-		hit.t = (t2 > 0) ? t2 : t1;
-		hit.position = ray.start + ray.dir * hit.t;
-		hit.normal = (hit.position - center) * (1.0f / radius);
+		vec3 normal(0, 0, 0);
+		float t = dot((planes[0].point - ray.start), planes[0].normalVector) / dot(ray.dir, planes[0].normalVector);
+		for (int i = 1; i < planes.size(); i++)
+		{
+			float temptT = dot((planes[i].point - ray.start), planes[i].normalVector) / dot(ray.dir, planes[i].normalVector);			
+			if (temptT > 0 && temptT > t)
+			{ 
+				t = temptT; //Mivel a csak falan belül lehet látható, tehát nagyobb pozitív legyen		
+				normal = planes[i].normalVector;
+			}
+		}
+		if (t < 0)return hit;
+		hit.t = t;
+		hit.position = ray.start + ray.dir + hit.t;
+		hit.normal = normal;
 		hit.material = material;
 		return hit;
 	}
@@ -146,93 +161,44 @@ float rnd() { return (float)rand() / RAND_MAX; }
 
 const float epsilon = 0.0001f;
 
-class Scene {
-	std::vector<Intersectable*> objects;
-	std::vector<Light*> lights;
-	Camera camera;
-	vec3 La;
-public:
-	void build() {
-		vec3 eye = vec3(0, 0, 2), vup = vec3(0, 1, 0), lookat = vec3(0, 0, 0);
-		float fov = 45 * M_PI / 180;
-		camera.set(eye, lookat, vup, fov);
+struct Sphere : public Intersectable {
+	vec3 center;
+	float radius;
 
-		La = vec3(0.4f, 0.4f, 0.4f);
-		vec3 lightDirection(1, 1, 1), Le(2, 2, 2);
-		lights.push_back(new Light(lightDirection, Le));
-
-		vec3 kd(0.3f, 0.2f, 0.1f), ks(2, 2, 2);
-		Material* material = new Material(kd, ks, 50);
-		for (int i = 0; i < 500; i++)
-			objects.push_back(new Sphere(vec3(rnd() - 0.5f, rnd() - 0.5f, rnd() - 0.5f), rnd() * 0.1f, material));
+	Sphere(const vec3& _center, float _radius, Material* _material) {
+		center = _center;
+		radius = _radius;
+		material = _material;
 	}
 
-	void render(std::vector<vec4>& image) {
-		for (int Y = 0; Y < windowHeight; Y++) {
-#pragma omp parallel for
-			for (int X = 0; X < windowWidth; X++) {
-				vec3 color = trace(camera.getRay(X, Y));
-				image[Y * windowWidth + X] = vec4(color.x, color.y, color.z, 1);
-			}
-		}
-	}
-
-	Hit firstIntersect(Ray ray) {
-		Hit bestHit;
-		for (Intersectable* object : objects) {
-			Hit hit = object->intersect(ray); //  hit.t < 0 if no intersection
-			if (hit.t > 0 && (bestHit.t < 0 || hit.t < bestHit.t))  bestHit = hit;
-		}
-		if (dot(ray.dir, bestHit.normal) > 0) bestHit.normal = bestHit.normal * (-1);
-		return bestHit;
-	}
-
-	bool shadowIntersect(Ray ray) {	// for directional lights
-		for (Intersectable* object : objects) if (object->intersect(ray).t > 0) return true;
-		return false;
-	}
-
-	vec3 trace(Ray ray, int depth = 0) {
-		Hit hit = firstIntersect(ray);
-		if (hit.t < 0) return La;
-		vec3 outRadiance = hit.material->ka * La;
-		for (Light* light : lights) {
-			Ray shadowRay(hit.position + hit.normal * epsilon, light->direction);
-			float cosTheta = dot(hit.normal, light->direction);
-			if (cosTheta > 0 && !shadowIntersect(shadowRay)) {	// shadow computation
-				outRadiance = outRadiance + light->Le * hit.material->kd * cosTheta;
-				vec3 halfway = normalize(-ray.dir + light->direction);
-				float cosDelta = dot(hit.normal, halfway);
-				if (cosDelta > 0) outRadiance = outRadiance + light->Le * hit.material->ks * powf(cosDelta, hit.material->shininess);
-			}
-		}
-		return outRadiance;
+	Hit intersect(const Ray& ray) {
+		Hit hit;
+		vec3 dist = ray.start - center;
+		float a = dot(ray.dir, ray.dir);
+		float b = dot(dist, ray.dir) * 2.0f;
+		float c = dot(dist, dist) - radius * radius;
+		float discr = b * b - 4.0f * a * c;
+		if (discr < 0) return hit;
+		float sqrt_discr = sqrtf(discr);
+		float t1 = (-b + sqrt_discr) / 2.0f / a;	// t1 >= t2 for sure
+		float t2 = (-b - sqrt_discr) / 2.0f / a;
+		if (t1 <= 0) return hit;
+		hit.t = (t2 > 0) ? t2 : t1;
+		hit.position = ray.start + ray.dir * hit.t;
+		hit.normal = (hit.position - center) * (1.0f / radius);
+		hit.material = material;
+		return hit;
 	}
 };
 
-
-
-
-
-GPUProgram gpuProgram; // vertex and fragment shaders
-unsigned int vao;	   // virtual world on the GPU
-
-
-
 // Initialization, create an OpenGL context
 void onInitialization() {
-	glViewport(0, 0, windowWidth, windowHeight);
-
-	// create program for the GPU
-	gpuProgram.create(vertexSource, fragmentSource, "outColor");
+	
 }
 
 // Window has become invalid: Redraw
 void onDisplay() {
-	glClearColor(0, 0, 0, 0);     // background color
-	glClear(GL_COLOR_BUFFER_BIT); // clear frame buffer
-
-	glutSwapBuffers(); // exchange buffers for double buffering
+	glutSwapBuffers();
 }
 
 // Key of ASCII code pressed
