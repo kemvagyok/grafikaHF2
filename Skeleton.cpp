@@ -77,7 +77,14 @@ struct Hit {
 struct Ray {
 	vec3 start, dir;
 	Ray(vec3 _start, vec3 _dir) { start = _start; dir = normalize(_dir); }
+
 };
+
+void rayRriteToConsole(const Ray& ray)
+{
+	printf("start -> x: %f, y: %f, z: %f\n", ray.start.x, ray.start.y, ray.start.z);
+	printf("dir -> x: %f, y: %f, z: %f\n", ray.dir.x, ray.dir.y, ray.dir.z);
+}
 
 class Intersectable {
 protected:
@@ -87,48 +94,43 @@ public:
 };
 
 struct plane {
+	std::vector<vec3> points;
 	vec3 normalVector;
-	vec3 point;
+	/*
 	vec3 min;
 	vec3 max;
+	*/
 
 
+	/*
 	plane(vec3 normalVector0, vec3 point0, vec3 min0, vec3 max0) 
 	{	normalVector = normalVector0; 
 		point = point0;
 		min = min0;
 		min = max0;
 	}
-	
-	bool compareBond(Ray ray)
+	*/
+	plane( std::vector<vec3> points0)
 	{
-		double tx1 = (min.x - ray.start.x) * ray.dir.x;
-		double tx2 = (max.x - ray.start.x) * ray.dir.x;
-
-		double tmin = min(tx1, tx2);
-		double tmax = max(tx1, tx2);
-
-		double ty1 = (min.y - ray.start.y) * ray.dir.y;
-		double ty2 = (max.y - ray.start.y) * ray.dir.y;
-
-		tmin = max(tmin, min(ty1, ty2));
-		tmax = min(tmax, max(ty1, ty2));
-
-		return tmax >= tmin;
-		/*
-		if (point.x >= min.x && point.y >= min.y && point.z >= min.z)
-			if (point.x <= max.x && point.y <= max.y && point.z <= max.z)
-				return  true;
-		return false;*/
+		points = points0;
+		normalVector = cross(points[1] - points[0], points[2] - points[0]);
 	}
 
-	void crease(float s, float d)
+	bool isInsideArea(vec3 foundPoint)
 	{
-		min = min*s+d;
-		max = max*s+d;
-		point = point * s + d;
-	}
+		vec3 crossOne = cross((points[1] - points[0]), (foundPoint - points[0]));
+		vec3 crossTwo = cross((points[2] - points[1]), (foundPoint - points[1]));
+		vec3 crossThree = cross((points[3] - points[2]), (foundPoint - points[2]));
+		vec3 crossFour = cross((points[0] - points[3]), (foundPoint - points[3]));
 
+		float dotOne = dot(crossOne, normalVector);
+		float dotTwo = dot(crossTwo, normalVector);
+		float dotThree = dot(crossThree, normalVector);
+		float dotFour = dot(crossFour, normalVector);
+		if (dotOne > 0 && dotTwo > 0 && dotThree > 0 && dotFour > 0)
+			return true;
+		return false;
+	}
 };
 
 struct RectangleOwn : public Intersectable {
@@ -136,51 +138,74 @@ struct RectangleOwn : public Intersectable {
 
 	RectangleOwn(Material* material0)
 	{	
-		planes = std::vector<plane>{
-		plane(vec3(1,0,0),vec3(1,0,0),vec3(1,0,0),vec3(1,1,1)),
-		plane(vec3(-1,0,0),vec3(0,0,0),vec3(0,0,0), vec3(0,1,1)),
-		plane(vec3(0,1,0),vec3(0,1,0),vec3(0,1,0),vec3(1,1,1)),
-		plane(vec3(0,-1,0),vec3(0,0,0),vec3(0,0,0), vec3(1,0,1)),
-		plane(vec3(0,0,1),vec3(0,0,1),vec3(0,0,1), vec3(1,1,1)),
-		plane(vec3(0,0,-1),vec3(0,0,0),vec3(0,0,0),vec3(1,1,0))};
+		planes = std::vector<plane>
+		{
+			/*
+			plane(vec3(1,0,0),vec3(1,0,0),vec3(1,0,0),vec3(1,1,1)),
+			plane(vec3(-1,0,0),vec3(0,0,0),vec3(0,0,0), vec3(0,1,1)),
+			plane(vec3(0,1,0),vec3(0,1,0),vec3(0,1,0),vec3(1,1,1)),
+			plane(vec3(0,-1,0),vec3(0,0,0),vec3(0,0,0), vec3(1,0,1)),
+			plane(vec3(0,0,1),vec3(0,0,1),vec3(0,0,1), vec3(1,1,1)),
+			plane(vec3(0,0,-1),vec3(0,0,0),vec3(0,0,0),vec3(1,1,0))
+			*/
+			plane(std::vector<vec3>{vec3(1,0,0),vec3(1,1,0),vec3(1,1,1),vec3(1,0,1)}),
+			plane(std::vector<vec3>{vec3(0,0,0),vec3(0,1,0),vec3(0,1,1),vec3(0,0,1)}),
+			plane(std::vector<vec3>{vec3(0,1,0),vec3(0,1,1),vec3(1,1,1),vec3(1,1,0)}),
+			plane(std::vector<vec3>{vec3(0,0,0),vec3(0,0,1),vec3(1,0,1),vec3(1,0,0)}),
+			plane(std::vector<vec3>{vec3(0,0,1),vec3(0,1,1),vec3(1,1,1),vec3(0,1,1)}),
+			plane(std::vector<vec3>{vec3(0,0,0),vec3(0,1,0),vec3(1,1,0),vec3(0,1,0)})
+		};
+		
 		material = material0;
 		rectangleCrease(1, 0);
 
 	}
 	void rectangleCrease(float s, float d)
 	{
-		for (int i = 0; i < planes.size(); i++)
-			planes[i].crease(s, d);
+		
 	}
+
 
 	Hit intersect(const Ray& ray)
 	{
 		Hit hit;
 		vec3 normal(0, 0, 0);
-		float t = dot((planes[0].point - ray.start), planes[0].normalVector) / dot(ray.dir, planes[0].normalVector);
-		vec3 position = ray.start + ray.dir * t;
-		for (int i = 0;  i < planes.size(); i++)
+		float temptT = -INFINITY;
+		for (int i = 0; i < planes.size(); i++)
 		{
-			float temptT = dot((planes[i].point - ray.start), planes[i].normalVector) / dot(ray.dir, planes[i].normalVector);
-
-			if(dot(position - planes[i].point, planes[i].normalVector) == 0 && t > 0)
-			{
-				if (planes[i].compareBond(ray))
+			float t = dot(planes[i].points[0] - ray.start, planes[i].normalVector) / dot(ray.dir, planes[i].normalVector);
+			if (t > 0) {
+				vec3 rayt = ray.start + ray.dir * t;
+				vec3 point = rayt - planes[i].points[0];
+				if (dot(point, planes[i].normalVector) == 0)
 				{
-					if (temptT < t)
-					{ 
-						t = temptT;
-						normal = planes[i].normalVector;
+					if (planes[i].isInsideArea(point))
+					{
+						if (temptT == -INFINITY)
+						{ 
+							if (temptT < t)
+							{
+							temptT = t;
+							normal = planes[i].normalVector;
+							}
+						}
+						else
+						{
+							if (temptT > t)
+							{
+								temptT = t;
+								normal = planes[i].normalVector;
+							}
+						}
 					}
-
 				}
 			}
 		}
-		if (t < 0) return hit;	
-		hit.t = t;
-		hit.position = ray.start + ray.dir * hit.t;
-		hit.normal = normal;
+		if (temptT < 0) return hit;
+		hit.t = temptT;
 		hit.material = material;
+		hit.normal = normal;
+		hit.position = ray.start + ray.dir * hit.t;
 		return hit;
 	}
 };
@@ -201,13 +226,6 @@ public:
 	Ray getRay(int X, int Y) {
 		vec3 dir = lookat + right * (2.0f * (X + 0.5f) / windowWidth - 1) + up * (2.0f * (Y + 0.5f) / windowHeight - 1) - eye;
 		return Ray(eye, dir);
-	}
-	void Animate(float dt) {
-
-		eye = vec3((eye.x - lookat.x) * cos(dt) + (eye.z - lookat.z) * sin(dt) + lookat.x,
-			eye.y,
-			-(eye.x - lookat.x) * sin(dt) + (eye.z - lookat.z) * cos(dt) + lookat.z);
-		set(eye, lookat, up, fova);
 	}
 };
 
@@ -232,20 +250,19 @@ class Scene {
 	vec3 La;
 public:
 	void build() {
-		vec3 eye = vec3(0,0,2), vup = vec3(0,1,0), lookat = vec3(0,0,0);
+		vec3 eye = vec3(4,1,4), vup = vec3(3,3,3), lookat = vec3(3,1,3);
 		float fov = 45 * M_PI / 180;
 		camera.set(eye, lookat, vup, fov);
 
-		La = vec3(0.4f, 0.4f, 0.4f);
-		vec3 lightDirection(1, 1, 1), Le(2, 2, 2);
+		La = vec3(0.1f, 0.1f, 0.1f);
+		vec3 lightDirection(1, 1, 1), Le(1, 1, 1);
 		lights.push_back(new Light(lightDirection, Le));
 
-		vec3 kd(0.3f, 0.2f, 0.1f), ks(2, 2, 2);
-		Material* material = new Material(kd, ks, 3);
+		vec3 kd(0.0f, 0.0f, 0.0f), ks(1, 1, 1);
+		Material* material = new Material(kd, ks, 0);
 		objects.push_back(new RectangleOwn(material));
 	}
-	void Animate(float dt) {
-		camera.Animate(dt); }
+
 
 	void render(std::vector<vec4>& image) {
 		for (int Y = 0; Y < windowHeight; Y++) {
@@ -266,7 +283,7 @@ public:
 		if (dot(ray.dir, bestHit.normal) > 0) bestHit.normal = bestHit.normal * (-1);
 		return bestHit;
 	}
-
+	
 	bool shadowIntersect(Ray ray) {	// for directional lights
 		for (Intersectable* object : objects) if (object->intersect(ray).t > 0) return true;
 		return false;
@@ -388,6 +405,6 @@ void onMouse(int button, int state, int pX, int pY) { // pX, pY are the pixel co
 
 // Idle event indicating that some time elapsed: do animation here
 void onIdle() {
-	scene.Animate(0.01f);
+
 	long time = glutGet(GLUT_ELAPSED_TIME); // elapsed time since the start of the program
 }
