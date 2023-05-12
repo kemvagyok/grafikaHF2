@@ -80,12 +80,6 @@ struct Ray {
 
 };
 
-void rayRriteToConsole(const Ray& ray)
-{
-	printf("start -> x: %f, y: %f, z: %f\n", ray.start.x, ray.start.y, ray.start.z);
-	printf("dir -> x: %f, y: %f, z: %f\n", ray.dir.x, ray.dir.y, ray.dir.z);
-}
-
 class Intersectable {
 protected:
 	Material* material;
@@ -96,20 +90,6 @@ public:
 struct plane {
 	std::vector<vec3> points;
 	vec3 normalVector;
-	/*
-	vec3 min;
-	vec3 max;
-	*/
-
-
-	/*
-	plane(vec3 normalVector0, vec3 point0, vec3 min0, vec3 max0) 
-	{	normalVector = normalVector0; 
-		point = point0;
-		min = min0;
-		min = max0;
-	}
-	*/
 	plane( std::vector<vec3> points0)
 	{
 		points = points0;
@@ -118,58 +98,77 @@ struct plane {
 
 	bool isInsideArea(vec3 foundPoint)
 	{
-		vec3 crossOne = cross((points[1] - points[0]), (foundPoint - points[0]));
-		vec3 crossTwo = cross((points[2] - points[1]), (foundPoint - points[1]));
-		vec3 crossThree = cross((points[3] - points[2]), (foundPoint - points[2]));
-		vec3 crossFour = cross((points[0] - points[3]), (foundPoint - points[3]));
+		for (int i = 0; i < points.size(); i++)
+		{
+			int nextIndex;
+			if (i == points.size() - 1) nextIndex = 0;
+			else nextIndex = i + 1;
+			vec3 crossActual = cross(points[nextIndex] - points[i], foundPoint - points[i]);
+			float dotActual = dot(crossActual, normalVector);
+			if (dotActual <= 0) return false;
+		}
+		return true;
 
-		float dotOne = dot(crossOne, normalVector);
-		float dotTwo = dot(crossTwo, normalVector);
-		float dotThree = dot(crossThree, normalVector);
-		float dotFour = dot(crossFour, normalVector);
-		if (dotOne > 0 && dotTwo > 0 && dotThree > 0 && dotFour > 0)
-			return true;
-		return false;
+	}
+
+	void transform(float s, float d)
+	{
+		for (int i = 0; i < points.size(); i++)
+			points[i] = points[i] * s + d;
 	}
 };
 
-struct RectangleOwn : public Intersectable {
-	std::vector<plane> planes;
 
-	RectangleOwn(Material* material0)
-	{	
-		planes = std::vector<plane>
-		{
-			/*
-			plane(vec3(1,0,0),vec3(1,0,0),vec3(1,0,0),vec3(1,1,1)),
-			plane(vec3(-1,0,0),vec3(0,0,0),vec3(0,0,0), vec3(0,1,1)),
-			plane(vec3(0,1,0),vec3(0,1,0),vec3(0,1,0),vec3(1,1,1)),
-			plane(vec3(0,-1,0),vec3(0,0,0),vec3(0,0,0), vec3(1,0,1)),
-			plane(vec3(0,0,1),vec3(0,0,1),vec3(0,0,1), vec3(1,1,1)),
-			plane(vec3(0,0,-1),vec3(0,0,0),vec3(0,0,0),vec3(1,1,0))
-			*/
-			plane(std::vector<vec3>{vec3(1,0,0),vec3(1,1,0),vec3(1,1,1),vec3(1,0,1)}),
-			plane(std::vector<vec3>{vec3(0,0,0),vec3(0,1,0),vec3(0,1,1),vec3(0,0,1)}),
-			plane(std::vector<vec3>{vec3(0,1,0),vec3(0,1,1),vec3(1,1,1),vec3(1,1,0)}),
-			plane(std::vector<vec3>{vec3(0,0,0),vec3(0,0,1),vec3(1,0,1),vec3(1,0,0)}),
-			plane(std::vector<vec3>{vec3(0,0,1),vec3(0,1,1),vec3(1,1,1),vec3(0,1,1)}),
-			plane(std::vector<vec3>{vec3(0,0,0),vec3(0,1,0),vec3(1,1,0),vec3(0,1,0)})
-		};
-		
-		material = material0;
-		rectangleCrease(1, 0);
+struct PlatonBody : Intersectable
+{
 
-	}
-	void rectangleCrease(float s, float d)
+	PlatonBody(Material* material0)
 	{
-		
+		material = material0;
 	}
 
+	std::vector<vec3> points{
+		vec3(0,-0.525731,0.850651),
+		vec3(0.850651,0,0.525731),
+		vec3(0.850651,0,-0.525731),
+		vec3(-0.850651,0,-0.525731),
+		vec3(-0.850651,0,0.525731),
+		vec3(-0.525731,0.850651,0),
+		vec3(0.525731,0.850651,0),
+		vec3(0.525731,-0.850651,0),
+
+		vec3(-0.525731,-0.850651,0),
+		vec3(0,-0.525731,-0.850651),
+		vec3(0,0.525731,-0.850651),
+		vec3(0,0.525731 ,0.850651)
+	};
+	std::vector<plane> planes = std::vector<plane>{
+		plane(std::vector<vec3>{points[1],points[2],points[6]}),
+		plane(std::vector<vec3>{points[1],points[7],points[2]}),
+		plane(std::vector<vec3>{points[3],points[4],points[5]}),
+		plane(std::vector<vec3>{points[4],points[3],points[8]}),
+		plane(std::vector<vec3>{points[6],points[5],points[11]}),
+		plane(std::vector<vec3>{(points[5]),(points[6]),(points[10])}),
+		plane(std::vector<vec3>{(points[9]),(points[10]),(points[2])}),
+		plane(std::vector<vec3>{(points[10]),(points[9]),(points[3])}),
+		plane(std::vector<vec3>{(points[7]),(points[8]),(points[9])}),
+		plane(std::vector<vec3>{(points[8]),(points[7]),(points[0])}),
+		plane(std::vector<vec3>{(points[11]),(points[0]),(points[1])}),
+		plane(std::vector<vec3>{(points[0]),(points[11]),(points[4])}),
+		plane(std::vector<vec3>{(points[6]),(points[2]),(points[10])}),
+		plane(std::vector<vec3>{(points[1]),(points[6]),(points[11])}),
+		plane(std::vector<vec3>{(points[3]),(points[5]),(points[10])}),
+		plane(std::vector<vec3>{(points[5]),(points[4]),(points[11])}),
+		plane(std::vector<vec3>{(points[2]),(points[7]),(points[9])}),
+		plane(std::vector<vec3>{(points[7]),(points[1]),(points[0])}),
+		plane(std::vector<vec3>{(points[3]),(points[9]),(points[8])}),
+		plane(std::vector<vec3>{(points[4]),(points[8]),(points[0])})
+	};
 
 	Hit intersect(const Ray& ray)
 	{
 		Hit hit;
-		vec3 normal(0, 0, 0);
+		vec3 normal(1, 2, 3);
 		float temptT = -INFINITY;
 		for (int i = 0; i < planes.size(); i++)
 		{
@@ -177,16 +176,16 @@ struct RectangleOwn : public Intersectable {
 			if (t > 0) {
 				vec3 rayt = ray.start + ray.dir * t;
 				vec3 point = rayt - planes[i].points[0];
-				if (dot(point, planes[i].normalVector) == 0)
+				if (dot(point, planes[i].normalVector) < 0.1 && dot(point, planes[i].normalVector) > -0.1)
 				{
 					if (planes[i].isInsideArea(point))
 					{
 						if (temptT == -INFINITY)
-						{ 
+						{
 							if (temptT < t)
 							{
-							temptT = t;
-							normal = planes[i].normalVector;
+								temptT = t;
+								normal = planes[i].normalVector;
 							}
 						}
 						else
@@ -197,10 +196,71 @@ struct RectangleOwn : public Intersectable {
 								normal = planes[i].normalVector;
 							}
 						}
+
 					}
 				}
 			}
 		}
+
+		if (temptT < 0) return hit;
+		hit.t = temptT;
+		hit.material = material;
+		hit.normal = normal;
+		hit.position = ray.start + ray.dir * hit.t;
+		return hit;
+	}
+
+};
+
+struct Room : public Intersectable {
+	std::vector<plane> planes = std::vector<plane>
+	{
+		plane(std::vector<vec3>{vec3(1, 0, 0), vec3(1, 1, 0), vec3(1, 1, 1), vec3(1, 0, 1)}),
+		plane(std::vector<vec3>{vec3(0, 0, 0), vec3(0, 1, 0), vec3(0, 1, 1), vec3(0, 0, 1)}),
+		plane(std::vector<vec3>{vec3(0, 1, 0), vec3(0, 1, 1), vec3(1, 1, 1), vec3(1, 1, 0)}),
+		plane(std::vector<vec3>{vec3(0, 0, 0), vec3(0, 0, 1), vec3(1, 0, 1), vec3(1, 0, 0)}),
+		plane(std::vector<vec3>{vec3(0, 0, 1), vec3(0, 1, 1), vec3(1, 1, 1), vec3(1, 0, 1)}),
+		plane(std::vector<vec3>{vec3(0, 0, 0), vec3(0, 1, 0), vec3(1, 1, 0), vec3(1, 0, 0)})
+	};
+
+	Room(Material* material0)
+	{			
+		material = material0;
+	}
+
+	void rectangleownTransform(float s, float d)
+	{
+		for (int i = 0; i < planes.size(); i++)
+		{
+			planes[i].transform(s, d);
+		}
+	}
+
+	Hit intersect(const Ray& ray)
+	{
+		Hit hit;
+		vec3 normal(1, 2, 3);
+		float temptT = -INFINITY;
+		for (int i = 0; i < planes.size(); i++)
+		{
+			float t = dot(planes[i].points[0] - ray.start, planes[i].normalVector) / dot(ray.dir, planes[i].normalVector);
+			if (t > 0) {
+				vec3 rayt = ray.start + ray.dir * t;
+				vec3 point = rayt - planes[i].points[0];
+				if (dot(point, planes[i].normalVector) < 0.1 && dot(point, planes[i].normalVector) > - 0.1)
+				{
+					if (planes[i].isInsideArea(point))
+					{ 
+							if (temptT < t)
+							{
+								temptT = t;
+								normal = planes[i].normalVector;
+							}					
+					}
+				}
+			}
+		}
+
 		if (temptT < 0) return hit;
 		hit.t = temptT;
 		hit.material = material;
@@ -209,6 +269,7 @@ struct RectangleOwn : public Intersectable {
 		return hit;
 	}
 };
+
 
 class Camera {
 	vec3 eye, lookat, right, up;
@@ -250,17 +311,20 @@ class Scene {
 	vec3 La;
 public:
 	void build() {
-		vec3 eye = vec3(4,1,4), vup = vec3(3,3,3), lookat = vec3(3,1,3);
+		vec3 eye = vec3(2, 0.5,2), vup = vec3(1,1,1), lookat = vec3(1,0.5,1);
 		float fov = 45 * M_PI / 180;
 		camera.set(eye, lookat, vup, fov);
 
-		La = vec3(0.1f, 0.1f, 0.1f);
+		La = vec3(1, 1, 1);
 		vec3 lightDirection(1, 1, 1), Le(1, 1, 1);
 		lights.push_back(new Light(lightDirection, Le));
 
-		vec3 kd(0.0f, 0.0f, 0.0f), ks(1, 1, 1);
-		Material* material = new Material(kd, ks, 0);
-		objects.push_back(new RectangleOwn(material));
+		vec3 kd1(0.2, 0.2, 0.2), ks1(1, 1, 1);
+		Material* material = new Material(kd1, ks1,1);
+		Room* room = new Room(material);
+		PlatonBody* platonbody1 = new PlatonBody(material);
+		objects.push_back(room);
+		objects.push_back(platonbody1);
 	}
 
 
@@ -289,19 +353,16 @@ public:
 		return false;
 	}
 
-	vec3 trace(Ray ray, int depth = 0) {
+	vec3 trace(Ray ray) {
 		Hit hit = firstIntersect(ray);
-		if (hit.t < 0) return La;
-		vec3 outRadiance = hit.material->ka * La;
+		if (hit.t < 0) return vec3(0,0,0);
+		vec3 outRadiance; 
 		for (Light* light : lights) {
-			Ray shadowRay(hit.position + hit.normal * epsilon, light->direction);
-			float cosTheta = dot(hit.normal, light->direction);
-			if (cosTheta > 0 && !shadowIntersect(shadowRay)) {	// shadow computation
-				outRadiance = outRadiance + light->Le * hit.material->kd * cosTheta;
-				vec3 halfway = normalize(-ray.dir + light->direction);
-				float cosDelta = dot(hit.normal, halfway);
-				if (cosDelta > 0) outRadiance = outRadiance + light->Le * hit.material->ks * powf(cosDelta, hit.material->shininess);
-			}
+			float cosThetaIn = dot(ray.dir, hit.normal);
+			float cosThetaOut = dot(-ray.dir, hit.normal);
+			outRadiance = ((hit.material->ka / 2)*(1+ cosThetaOut)) * La;
+			float L =  0.2 * (1 + cosThetaIn);
+			if (L >= 2 && L <= 4) outRadiance =+ L;
 		}
 		return outRadiance;
 	}
