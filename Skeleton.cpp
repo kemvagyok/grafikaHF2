@@ -55,7 +55,7 @@ const char* const fragmentSource = R"(
 	uniform sampler2D textureUnit;
 	in  vec2 texcoord;			// interpolated texture coordinates
 	out vec4 fragmentColor;		// output that goes to the raster memory as told by glBindFragDataLocation
-
+	
 	void main() {
 		fragmentColor = texture(textureUnit, texcoord); 
 	}
@@ -100,15 +100,11 @@ struct plane {
 	{
 		for (int i = 0; i < points.size(); i++)
 		{
-			int nextIndex;
-			if (i == points.size() - 1) nextIndex = 0;
-			else nextIndex = i + 1;
-			vec3 crossActual = cross(points[nextIndex] - points[i], foundPoint - points[i]);
-			float dotActual = dot(crossActual, normalVector);
+			vec3 crossActual = cross(points[i] - points[(i == points.size() - 1) ? 0 : i + 1], foundPoint - points[(i == points.size() - 1) ? 0 : i + 1]);
+			float dotActual = dot(crossActual, normalVector*-1);
 			if (dotActual <= 0) return false;
 		}
 		return true;
-
 	}
 
 	void transform(float s, float d)
@@ -121,12 +117,24 @@ struct plane {
 
 struct PlatonBody : Intersectable
 {
-
+	std::vector<vec3> points{
+		vec3(0,0,0),
+		vec3(1,0,0),
+		vec3(0,1,0),
+		vec3(0,0,1)
+	};
+	std::vector<plane> planes = std::vector<plane>{
+		plane(std::vector<vec3>{points[0],points[1],points[2]}),
+		plane(std::vector<vec3>{points[0],points[3],points[2]}),
+		plane(std::vector<vec3>{points[0],points[1],points[3]}),
+		plane(std::vector<vec3>{points[1],points[2],points[3]})
+	};
 	PlatonBody(Material* material0)
 	{
 		material = material0;
-	}
 
+	}
+	/*
 	std::vector<vec3> points{
 		vec3(0,-0.525731,0.850651),
 		vec3(0.850651,0,0.525731),
@@ -164,22 +172,53 @@ struct PlatonBody : Intersectable
 		plane(std::vector<vec3>{(points[3]),(points[9]),(points[8])}),
 		plane(std::vector<vec3>{(points[4]),(points[8]),(points[0])})
 	};
+	*/
+	/*
+	std::vector<vec3> points{
+	vec3(1,0,0),
+	vec3(0,-1,0),
+	vec3(-1,0,0),
+	vec3(0,1,0),
+	vec3(0,0,1),
+	vec3(0,0,-1)
+	};
+	std::vector<plane> planes = std::vector<plane>{
+		plane(std::vector<vec3>{points[1],points[0],points[4]}),
+		plane(std::vector<vec3>{points[2],points[1],points[4]}),
+		plane(std::vector<vec3>{points[3],points[2],points[4]}),
+		plane(std::vector<vec3>{points[0],points[3],points[4]}),
+		plane(std::vector<vec3>{points[0],points[1],points[5]}),
+		plane(std::vector<vec3>{(points[1]),(points[2]),(points[5])}),
+		plane(std::vector<vec3>{(points[2]),(points[3]),(points[5])}),
+		plane(std::vector<vec3>{(points[3]),(points[0]),(points[5])})
+	};*/
+	
 
 	Hit intersect(const Ray& ray)
 	{
 		Hit hit;
-		vec3 normal(1, 2, 3);
+		vec3 normal(0,0,0);
 		float temptT = -INFINITY;
+		//printf("UJABB SUGÁR\n");
 		for (int i = 0; i < planes.size(); i++)
 		{
+			//if (dot(planes[i].normalVector, ray.dir) < 0) planes[i].normalVector =planes[i].normalVector * 1;
 			float t = dot(planes[i].points[0] - ray.start, planes[i].normalVector) / dot(ray.dir, planes[i].normalVector);
 			if (t > 0) {
 				vec3 rayt = ray.start + ray.dir * t;
 				vec3 point = rayt - planes[i].points[0];
+
 				if (dot(point, planes[i].normalVector) < 0.1 && dot(point, planes[i].normalVector) > -0.1)
 				{
 					if (planes[i].isInsideArea(point))
 					{
+
+						/*
+						printf("normalvektor -> x: %f y: %f z: %f\n", planes[i].normalVector.x, planes[i].normalVector.y, planes[i].normalVector.z);
+						printf("ray.dir -> x: %f y: %f z: %f\n", ray.dir.x, ray.dir.y, ray.dir.z);
+						printf("rayt -> x: %f y: %f z: %f\n", rayt.x, rayt.y, rayt.z);
+						printf("point -> x: %f y: %f z: %f\n\n\n", point.x, point.y, point.z);
+						*/
 						if (temptT == -INFINITY)
 						{
 							if (temptT < t)
@@ -196,16 +235,16 @@ struct PlatonBody : Intersectable
 								normal = planes[i].normalVector;
 							}
 						}
-
 					}
 				}
 			}
+		
 		}
-
+		vec3 asd = ray.start + ray.dir * temptT;
 		if (temptT < 0) return hit;
-		hit.t = temptT;
 		hit.material = material;
 		hit.normal = normal;
+		hit.t = temptT;
 		hit.position = ray.start + ray.dir * hit.t;
 		return hit;
 	}
@@ -311,7 +350,13 @@ class Scene {
 	vec3 La;
 public:
 	void build() {
-		vec3 eye = vec3(2, 0.5,2), vup = vec3(1,1,1), lookat = vec3(1,0.5,1);
+		float dt = 0;
+		vec3 eye = vec3(4, 0.5, 4);
+		vec3 vup = vec3(0, 1, 0);
+		vec3 lookat = vec3(0, 0, 0);
+		eye = vec3((eye.x - lookat.x) * cos(dt) + (eye.z - lookat.z) * sin(dt) + lookat.x,
+			eye.y,
+			-(eye.x - lookat.x) * sin(dt) + (eye.z - lookat.z) * cos(dt) + lookat.z);
 		float fov = 45 * M_PI / 180;
 		camera.set(eye, lookat, vup, fov);
 
@@ -321,12 +366,11 @@ public:
 
 		vec3 kd1(0.2, 0.2, 0.2), ks1(1, 1, 1);
 		Material* material = new Material(kd1, ks1,1);
-		Room* room = new Room(material);
+		//Room* room = new Room(material);
 		PlatonBody* platonbody1 = new PlatonBody(material);
-		objects.push_back(room);
+		//objects.push_back(room);
 		objects.push_back(platonbody1);
 	}
-
 
 	void render(std::vector<vec4>& image) {
 		for (int Y = 0; Y < windowHeight; Y++) {
@@ -362,7 +406,7 @@ public:
 			float cosThetaOut = dot(-ray.dir, hit.normal);
 			outRadiance = ((hit.material->ka / 2)*(1+ cosThetaOut)) * La;
 			float L =  0.2 * (1 + cosThetaIn);
-			if (L >= 2 && L <= 4) outRadiance =+ L;
+			if (L >= 2 && L <= 4 ) outRadiance =+ L;
 		}
 		return outRadiance;
 	}
@@ -466,6 +510,8 @@ void onMouse(int button, int state, int pX, int pY) { // pX, pY are the pixel co
 
 // Idle event indicating that some time elapsed: do animation here
 void onIdle() {
+	//scene.Animate(0.01f);
+	//scene.build();
 
 	long time = glutGet(GLUT_ELAPSED_TIME); // elapsed time since the start of the program
 }
