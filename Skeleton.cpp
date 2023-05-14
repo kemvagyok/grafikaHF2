@@ -89,6 +89,7 @@ public:
 
 struct Triangle : public Intersectable
 {
+public:
 	vec3 r1;
 	vec3 r2;
 	vec3 r3;
@@ -133,12 +134,75 @@ struct Triangle : public Intersectable
 					hit.normal = normalVector;
 					hit.position = point;
 					hit.material = material;
-					return hit;
 				}
 			}
 		}
 		return hit;	
 
+	}
+};
+struct RectangleOwn :  Triangle
+{
+	vec3 r4;
+	RectangleOwn(vec3 _r1, vec3 _r2, vec3 _r3, vec3 _r4, Material* _material) : Triangle(_r1,_r2,_r3, _material)
+	{
+		r4 = _r4;
+	}
+	bool isInsideArea(vec3 p)
+	{
+		vec3 cross1 = cross(r2 - r1, p - r1);
+		vec3 cross2 = cross(r3 - r2, p - r2);
+		vec3 cross3 = cross(r4 - r3, p - r3);
+		vec3 cross4 = cross(r1 - r4, p - r4);
+		float dot1 = dot(cross1, normalVector);
+		float dot2 = dot(cross2, normalVector);
+		float dot3 = dot(cross3, normalVector);
+		float dot4 = dot(cross4, normalVector);
+		if (dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0) return true;
+		return false;
+	}
+	Hit intersect(const Ray& ray)
+	{
+		Hit hit;
+		float t = dot(r1 - ray.start, normalVector) / dot(ray.dir, normalVector);
+		if (t > 0)
+		{
+			vec3 rayt = ray.start + ray.dir * t;
+			vec3 point = rayt - r1;
+			if (dot(point, normalVector) < 0.1 && dot(point, normalVector) > -0.1)
+			{
+				if (isInsideArea(point))
+				{
+					hit.t = t;
+					hit.normal = normalVector;
+					hit.position = point;
+					hit.material = material;
+					return hit;
+				}
+			}
+		}
+		return hit;
+	}
+
+};
+struct Room : Intersectable
+{
+	std::vector<RectangleOwn> rectangles;
+	Room(std::vector<RectangleOwn> rectangles0) { rectangles = rectangles0;}
+	Hit intersect(const Ray& ray)
+	{
+		Hit lowestHit;
+		for (int i = 0; i < rectangles.size(); i++)
+		{
+			Hit hit = rectangles[i].intersect(ray);
+			if (hit.t > 0)
+				if (lowestHit.t == -1)
+					lowestHit = hit;
+				else
+					if (hit.t > lowestHit.t)
+						lowestHit = hit;
+		}
+		return lowestHit;
 	}
 };
 
@@ -171,7 +235,6 @@ struct Light {
 };
 
 float rnd() { return (float)rand() / RAND_MAX; }
-
 const float epsilon = 0.0001f;
 
 
@@ -197,6 +260,7 @@ public:
 		lights.push_back(new Light(lightDirection, Le));
 
 		vec3 kd1(0.2, 0.2, 0.2), ks1(1, 1, 1);
+		vec3 kd2(0, 0, 0), ks2(0, 0, 0);
 		Material* material = new Material(kd1, ks1,1);
 
 		std::vector<vec3> points{
@@ -205,15 +269,53 @@ public:
 		vec3(0,1,0),
 		vec3(0,0,1)
 		};
-
 		std::vector<Triangle*> triangles = std::vector<Triangle*>{
-			new Triangle(points[0],points[1],points[2], material),
-			new Triangle(points[0],points[3],points[2], material),
-			new Triangle(points[0],points[1],points[3], material),
-			new Triangle(points[1],points[2],points[3], material)
+		new Triangle(points[0],points[1],points[2], material),
+		new Triangle(points[0],points[3],points[2], material),
+		new Triangle(points[0],points[1],points[3], material),
+		new Triangle(points[1],points[2],points[3], material)
+			};
+		const vec3 corrig1 = vec3(2.9f, 1.7, 1);
+		const float ratio = 4;
+		/*
+		vec3 dvert1 = (vec3(1, 0, 0) + corrig1) / ratio;
+		vec3 dvert2 = (vec3(0, -1, 0) + corrig1) / ratio;
+		vec3 dvert3 = (vec3(-1, 0, 0) + corrig1) / ratio;
+		vec3 dvert4 = (vec3(0, 1, 0) + corrig1) / ratio;
+		vec3 dvert5 = (vec3(0, 0, 1) + corrig1) / ratio;
+		vec3 dvert6 = (vec3(0, 0, -1) + corrig1) / ratio;
+
+		Triangle* dface1 = new Triangle(dvert2, dvert1, dvert5, material);
+		Triangle* dface2 = new Triangle(dvert3, dvert2, dvert5, material);
+		Triangle* dface3 = new Triangle(dvert4, dvert3, dvert5, material);
+		Triangle* dface4 = new Triangle(dvert1, dvert4, dvert5, material);
+		Triangle* dface5 = new Triangle(dvert1, dvert2, dvert6, material);
+		Triangle* dface6 = new Triangle(dvert2, dvert3, dvert6, material);
+		Triangle* dface7 = new Triangle(dvert3, dvert4, dvert6, material);
+		Triangle* dface8 = new Triangle(dvert4, dvert1, dvert6, material);
+		objects.push_back(dface1);
+		objects.push_back(dface2);
+		objects.push_back(dface3);
+		objects.push_back(dface4);
+		objects.push_back(dface5);
+		objects.push_back(dface6);
+		objects.push_back(dface7);
+		objects.push_back(dface8);
+		*/
+
+		std::vector<RectangleOwn> roomR = std::vector<RectangleOwn>{
+			RectangleOwn(vec3(1, 0, 0), vec3(1, 1, 0), vec3(1, 1, 1), vec3(1, 0, 1), material),
+			RectangleOwn(vec3(0, 0, 0), vec3(0, 1, 0), vec3(0, 1, 1), vec3(0, 0, 1), material),
+			RectangleOwn(vec3(0, 1, 0), vec3(0, 1, 1), vec3(1, 1, 1), vec3(1, 1, 0), material),
+			RectangleOwn(vec3(0, 0, 0), vec3(0, 0, 1), vec3(1, 0, 1), vec3(1, 0, 0), material),
+			RectangleOwn(vec3(0, 0, 1), vec3(0, 1, 1), vec3(1, 1, 1), vec3(1, 0, 1), material),
+			RectangleOwn(vec3(0, 0, 0), vec3(0, 1, 0), vec3(1, 1, 0), vec3(1, 0, 0), material)
 		};
+		Room* room = new Room(roomR);
+		//objects.push_back(room);
 		for (int i = 0; i < triangles.size(); i++)
 			objects.push_back(triangles[i]);
+		
 	}
 
 	void render(std::vector<vec4>& image) {
@@ -289,8 +391,6 @@ public:
 	}
 };
 FullScreenTexturedQuad* fullScreenTexturedQuad;
-
-
 
 // Initialization, create an OpenGL context
 void onInitialization() {
