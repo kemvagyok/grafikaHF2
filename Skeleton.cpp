@@ -1,6 +1,4 @@
 //=============================================================================================
-// Mintaprogram: Zöld háromszög. Ervenyes 2019. osztol.
-//
 // A beadott program csak ebben a fajlban lehet, a fajl 1 byte-os ASCII karaktereket tartalmazhat, BOM kihuzando.
 // Tilos:
 // - mast "beincludolni", illetve mas konyvtarat hasznalni
@@ -77,7 +75,6 @@ struct Hit {
 struct Ray {
 	vec3 start, dir;
 	Ray(vec3 _start, vec3 _dir) { start = _start; dir = normalize(_dir); }
-
 };
 
 class Intersectable {
@@ -93,29 +90,40 @@ public:
 	vec3 r1;
 	vec3 r2;
 	vec3 r3;
+	vec3 different;
 	vec3 normalVector;
 
-	Triangle(vec3 _r1, vec3 _r2, vec3 _r3, Material* _material)
+	Triangle(vec3 _r1, vec3 _r2, vec3 _r3)
 	{
-
 		r1 = _r1;
 		r2 = _r2;
 		r3 = _r3;
+		different = r1;
+
 		normalVector = cross(r2 - r1, r3 - r1);
-		material = _material;
+		vec3 kd1(0.2, 0.2, 0.2), ks1(0.1, 0.1, 0.1); 
+		material =new Material(kd1, ks1,0.1);
 	}
+
 
 	bool isInsideArea(vec3 p)
 	{
 		vec3 cross1 = cross(r2 - r1, p - r1);
-		vec3 cross2 = cross(r3 - r2, p - r3);
+		vec3 cross2 = cross(r3 - r2, p - r2);
 		vec3 cross3 = cross(r1 - r3, p - r3);
 		float dot1 = dot(cross1, normalVector);
 		float dot2 = dot(cross2, normalVector);
 		float dot3 = dot(cross3, normalVector);
-
 		if (dot1 > 0 && dot2 > 0 && dot3 > 0) return true;
 		return false;
+	}
+
+	void transform(float d, float s)
+	{
+		r1 = r1 * d + s;
+		r2 = r2 * d + s;
+		r3 = r3 * d + s;
+		different = r1;
 	}
 
 	Hit intersect(const Ray& ray)
@@ -128,7 +136,7 @@ public:
 			vec3 point = rayt - r1;
 			if (dot(point, normalVector) < 0.1 && dot(point,normalVector) > -0.1)
 			{
-				if (isInsideArea(point))
+				if (isInsideArea(point+different))
 				{
 					hit.t = t;
 					hit.normal = normalVector;
@@ -138,13 +146,25 @@ public:
 			}
 		}
 		return hit;	
+	}
+};
+
+struct kup : Intersectable
+{
+	vec3 r;
+	vec3 p;
+	vec3 normalVector;
+	float alfa;
+	Hit intersect(const Ray& ray)
+	{
 
 	}
 };
+
 struct RectangleOwn :  Triangle
 {
 	vec3 r4;
-	RectangleOwn(vec3 _r1, vec3 _r2, vec3 _r3, vec3 _r4, Material* _material) : Triangle(_r1,_r2,_r3, _material)
+	RectangleOwn(vec3 _r1, vec3 _r2, vec3 _r3, vec3 _r4) : Triangle(_r1,_r2,_r3)
 	{
 		r4 = _r4;
 	}
@@ -168,7 +188,7 @@ struct RectangleOwn :  Triangle
 		if (t > 0)
 		{
 			vec3 rayt = ray.start + ray.dir * t;
-			vec3 point = rayt - r1;
+			vec3 point = rayt - r1 ;
 			if (dot(point, normalVector) < 0.1 && dot(point, normalVector) > -0.1)
 			{
 				if (isInsideArea(point))
@@ -185,6 +205,7 @@ struct RectangleOwn :  Triangle
 	}
 
 };
+
 struct Room : Intersectable
 {
 	std::vector<RectangleOwn> rectangles;
@@ -212,7 +233,7 @@ class Camera {
 public:
 	void set(vec3 _eye, vec3 _lookat, vec3 vup, float fov) {
 		eye = _eye;
-		lookat = _lookat;
+		lookat = _lookat;	
 		vec3 w = eye - lookat;
 		float focus = length(w);
 		right = normalize(cross(vup, w)) * focus * tanf(fov / 2);
@@ -234,10 +255,6 @@ struct Light {
 	}
 };
 
-float rnd() { return (float)rand() / RAND_MAX; }
-const float epsilon = 0.0001f;
-
-
 class Scene {
 	std::vector<Intersectable*> objects;
 	std::vector<Light*> lights;
@@ -245,8 +262,8 @@ class Scene {
 	vec3 La;
 public:
 	void build() {
-		float dt = 0;
-		vec3 eye = vec3(4, 0.5, 4);
+		float dt = M_PI*0;
+		vec3 eye = vec3(2, 0.5, 2);
 		vec3 vup = vec3(0, 1, 0);
 		vec3 lookat = vec3(0, 0, 0);
 		eye = vec3((eye.x - lookat.x) * cos(dt) + (eye.z - lookat.z) * sin(dt) + lookat.x,
@@ -256,66 +273,91 @@ public:
 		camera.set(eye, lookat, vup, fov);
 
 		La = vec3(1, 1, 1);
-		vec3 lightDirection(1, 1, 1), Le(1, 1, 1);
+		vec3 lightDirection(3, 0.5, 3), Le(0.8, 0.8, 0.8);
 		lights.push_back(new Light(lightDirection, Le));
 
-		vec3 kd1(0.2, 0.2, 0.2), ks1(1, 1, 1);
-		vec3 kd2(0, 0, 0), ks2(0, 0, 0);
-		Material* material = new Material(kd1, ks1,1);
-
-		std::vector<vec3> points{
-		vec3(0,0,0),
-		vec3(1,0,0),
-		vec3(0,1,0),
-		vec3(0,0,1)
-		};
-		std::vector<Triangle*> triangles = std::vector<Triangle*>{
-		new Triangle(points[0],points[1],points[2], material),
-		new Triangle(points[0],points[3],points[2], material),
-		new Triangle(points[0],points[1],points[3], material),
-		new Triangle(points[1],points[2],points[3], material)
-			};
-		const vec3 corrig1 = vec3(2.9f, 1.7, 1);
-		const float ratio = 4;
 		/*
-		vec3 dvert1 = (vec3(1, 0, 0) + corrig1) / ratio;
-		vec3 dvert2 = (vec3(0, -1, 0) + corrig1) / ratio;
-		vec3 dvert3 = (vec3(-1, 0, 0) + corrig1) / ratio;
-		vec3 dvert4 = (vec3(0, 1, 0) + corrig1) / ratio;
-		vec3 dvert5 = (vec3(0, 0, 1) + corrig1) / ratio;
-		vec3 dvert6 = (vec3(0, 0, -1) + corrig1) / ratio;
-
-		Triangle* dface1 = new Triangle(dvert2, dvert1, dvert5, material);
-		Triangle* dface2 = new Triangle(dvert3, dvert2, dvert5, material);
-		Triangle* dface3 = new Triangle(dvert4, dvert3, dvert5, material);
-		Triangle* dface4 = new Triangle(dvert1, dvert4, dvert5, material);
-		Triangle* dface5 = new Triangle(dvert1, dvert2, dvert6, material);
-		Triangle* dface6 = new Triangle(dvert2, dvert3, dvert6, material);
-		Triangle* dface7 = new Triangle(dvert3, dvert4, dvert6, material);
-		Triangle* dface8 = new Triangle(dvert4, dvert1, dvert6, material);
-		objects.push_back(dface1);
-		objects.push_back(dface2);
-		objects.push_back(dface3);
-		objects.push_back(dface4);
-		objects.push_back(dface5);
-		objects.push_back(dface6);
-		objects.push_back(dface7);
-		objects.push_back(dface8);
-		*/
-
-		std::vector<RectangleOwn> roomR = std::vector<RectangleOwn>{
-			RectangleOwn(vec3(1, 0, 0), vec3(1, 1, 0), vec3(1, 1, 1), vec3(1, 0, 1), material),
-			RectangleOwn(vec3(0, 0, 0), vec3(0, 1, 0), vec3(0, 1, 1), vec3(0, 0, 1), material),
-			RectangleOwn(vec3(0, 1, 0), vec3(0, 1, 1), vec3(1, 1, 1), vec3(1, 1, 0), material),
-			RectangleOwn(vec3(0, 0, 0), vec3(0, 0, 1), vec3(1, 0, 1), vec3(1, 0, 0), material),
-			RectangleOwn(vec3(0, 0, 1), vec3(0, 1, 1), vec3(1, 1, 1), vec3(1, 0, 1), material),
-			RectangleOwn(vec3(0, 0, 0), vec3(0, 1, 0), vec3(1, 1, 0), vec3(1, 0, 0), material)
+		std::vector<vec3> points{
+		vec3(1,0,0),//0
+		vec3(0,-1,0),//1
+		vec3(-1,0,0),//2
+		vec3(0,1,0),//3
+		vec3(0,0,1),//4
+		vec3(0,0,-1)//5
 		};
+
+			
+
+		std::vector<Triangle*> triangles = std::vector<Triangle*>{
+		new Triangle(points[1],points[0],points[4]),
+		new Triangle(points[2],points[1],points[4]),
+		new Triangle(points[3],points[2],points[4]),
+		new Triangle(points[0],points[3],points[4]),
+		new Triangle(points[0],points[1],points[5]),
+		new Triangle(points[1],points[2],points[5]),
+		new Triangle(points[2],points[3],points[5]),
+		new Triangle(points[3],points[0],points[5])
+		};*/
+		
+		std::vector<vec3> points{
+			vec3(0,-0.525731,0.850651),
+			vec3(0.850651,0,0.525731),
+			vec3(0.850651,0,-0.525731),
+			vec3(-0.850651,0,-0.525731),
+			vec3(-0.850651,0,0.525731),
+			vec3(-0.525731,0.850651,0),
+			vec3(0.525731,0.850651,0),
+			vec3(0.525731,-0.850651,0),
+			vec3(-0.525731,-0.850651,0),
+			vec3(0,-0.525731,-0.850651),
+			vec3(0,0.525731,-0.850651),
+			vec3(0,0.525731 ,0.850651)
+		};
+		float s = 0.25;
+		vec3 d = vec3(0.75,0.5,0.75);
+		for (int i = 0; i < points.size(); i++)
+		{
+			points[i] = points[i] * s + d;
+		}
+
+		
+		std::vector<Triangle*> triangles = std::vector<Triangle*>{
+			new Triangle(points[1],points[2],points[6]),
+			new Triangle(points[1],points[7],points[2]),
+			new Triangle(points[3],points[4],points[5]),
+			new Triangle(points[4],points[3],points[8]),
+			new Triangle(points[6],points[5],points[11]),
+			new Triangle(points[5],(points[6]),points[10]),
+			new Triangle(points[9],(points[10]),points[2]),
+			new Triangle(points[10],(points[9]),points[3]),
+			new Triangle(points[7],(points[8]),points[9]),
+			new Triangle(points[8],(points[7]),points[0]),
+			new Triangle(points[11],(points[0]),points[1]),
+			new Triangle(points[0],(points[11]),points[4]),
+			new Triangle(points[6],(points[2]),points[10]),
+			new Triangle(points[1],(points[6]),points[11]),
+			new Triangle(points[3],(points[5]),points[10]),
+			new Triangle(points[5],(points[4]),points[11]),
+			new Triangle(points[2],(points[7]),points[9]),
+			new Triangle(points[7],(points[1]),points[0]),
+			new Triangle(points[3],(points[9]),points[8]),
+			new Triangle(points[4],(points[8]),points[0])
+		};
+			
+		std::vector<RectangleOwn> roomR = std::vector<RectangleOwn>{
+			RectangleOwn(vec3(1, 0, 0), vec3(1, 1, 0), vec3(1, 1, 1), vec3(1, 0, 1)),
+			RectangleOwn(vec3(0, 0, 0), vec3(0, 1, 0), vec3(0, 1, 1), vec3(0, 0, 1)),
+			RectangleOwn(vec3(0, 1, 0), vec3(0, 1, 1), vec3(1, 1, 1), vec3(1, 1, 0)),
+			RectangleOwn(vec3(0, 0, 0), vec3(0, 0, 1), vec3(1, 0, 1), vec3(1, 0, 0)),
+			RectangleOwn(vec3(0, 0, 1), vec3(0, 1, 1), vec3(1, 1, 1), vec3(1, 0, 1)),
+			RectangleOwn(vec3(0, 0, 0), vec3(0, 1, 0), vec3(1, 1, 0), vec3(1, 0, 0))
+		};
+
 		Room* room = new Room(roomR);
-		//objects.push_back(room);
+		
+		objects.push_back(room);
 		for (int i = 0; i < triangles.size(); i++)
 			objects.push_back(triangles[i]);
-		
 	}
 
 	void render(std::vector<vec4>& image) {
@@ -343,16 +385,18 @@ public:
 		return false;
 	}
 
+
+
 	vec3 trace(Ray ray) {
 		Hit hit = firstIntersect(ray);
-		if (hit.t < 0) return vec3(0,0,0);
-		vec3 outRadiance; 
+		if (hit.t < 0) return vec3(0, 0, 0);
+		vec3 outRadiance;
 		for (Light* light : lights) {
-			float cosThetaIn = dot(ray.dir, hit.normal);
-			float cosThetaOut = dot(-ray.dir, hit.normal);
-			outRadiance = ((hit.material->ka / 2)*(1+ cosThetaOut)) * La;
-			float L =  0.2 * (1 + cosThetaIn);
-			if (L >= 2 && L <= 4 ) outRadiance =+ L;
+			float cosThetaIn = dot(normalize(ray.dir), normalize(hit.normal));
+			float cosThetaOut = dot(normalize(ray.start - hit.position), normalize(hit.normal));
+			outRadiance = outRadiance+((hit.material->ka / 2) * (1 + cosThetaOut)) * La;
+			float L = 0.2 * (1 + cosThetaIn);
+			if (L >= 0.2 && L <= 0.4) outRadiance = outRadiance +L;
 		}
 		return outRadiance;
 	}

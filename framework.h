@@ -64,9 +64,12 @@ struct vec3 {
 	vec3 operator-(const vec3& v) const { return vec3(x - v.x, y - v.y, z - v.z); }
 	vec3 operator*(const vec3& v) const { return vec3(x * v.x, y * v.y, z * v.z); }
 	vec3 operator-()  const { return vec3(-x, -y, -z); }
+	void write() { printf("X: %f, Y: %f, Z: %f\n", x, y, z); }
+
 };
 
 inline float dot(const vec3& v1, const vec3& v2) { return (v1.x * v2.x + v1.y * v2.y + v1.z * v2.z); }
+
 
 inline float length(const vec3& v) { return sqrtf(dot(v, v)); }
 
