@@ -23,7 +23,7 @@
     <ClCompile Include="..\framework.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\Skeleton.cpp">
+    <ClCompile Include="..\ECSGGY.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

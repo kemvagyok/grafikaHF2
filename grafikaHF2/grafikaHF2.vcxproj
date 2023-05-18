@@ -23,7 +23,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\framework.cpp" />
-    <ClCompile Include="..\Skeleton.cpp" />
+    <ClCompile Include="..\ECSGGY.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

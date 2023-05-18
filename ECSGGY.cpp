@@ -90,7 +90,6 @@ public:
     vec3 r1;
     vec3 r2;
     vec3 r3;
-    vec3 different;
     vec3 normalVector;
 
     Triangle(vec3 _r1, vec3 _r2, vec3 _r3)
@@ -98,7 +97,6 @@ public:
         r1 = _r1;
         r2 = _r2;
         r3 = _r3;
-        different = r1;
 
         normalVector = cross(r2 - r1, r3 - r1);
         vec3 kd1(0.2, 0.2, 0.2), ks1(0.1, 0.1, 0.1); 
@@ -123,7 +121,6 @@ public:
         r1 = r1 * d + s;
         r2 = r2 * d + s;
         r3 = r3 * d + s;
-        different = r1;
     }
 
     Hit intersect(const Ray& ray)
@@ -132,11 +129,11 @@ public:
         float t = dot(r1 - ray.start, normalVector) / dot(ray.dir, normalVector);
         if (t > 0) 
         {
-            vec3 rayt = ray.start + ray.dir * t;
-            vec3 point = rayt - r1;
-            if (dot(point, normalVector) < 0.1 && dot(point,normalVector) > -0.1)
+            vec3 point = ray.start + ray.dir * t;
+            vec3 vector = point - r1;
+            if (dot(vector, normalVector) < 0.1 && dot(vector,normalVector) > -0.1)
             {
-                if (isInsideArea(point+different))
+                if (isInsideArea(point))
                 {
                     hit.t = t;
                     hit.normal = normalVector;
@@ -175,9 +172,9 @@ struct RectangleOwn :  Triangle
         float t = dot(r1 - ray.start, normalVector) / dot(ray.dir, normalVector);
         if (t > 0)
         {
-            vec3 rayt = ray.start + ray.dir * t;
-            vec3 point = rayt - r1 ;
-            if (dot(point, normalVector) < 0.1 && dot(point, normalVector) > -0.1)
+            vec3 point = ray.start + ray.dir * t;
+            vec3 vector = point - r1 ;
+            if (dot(vector, normalVector) < 0.1 && dot(vector, normalVector) > -0.1)
             {
                 if (isInsideArea(point))
                 {
@@ -221,7 +218,7 @@ struct Cone : Intersectable
     vec3 normalVector;
     float alfa;
     float h;
-    Cone(vec3 p0, float h0, float alfa0, vec3 normalVector0)
+    Cone(vec3 p0, float h0, float alfa0, vec3 normalVector0, Material* material0)
     {
         p = p0;        
         h = h0;
@@ -229,7 +226,7 @@ struct Cone : Intersectable
 
         normalVector = normalize(normalVector0);
         vec3 kd1(0.2, 0.2, 0.2), ks1(0.1, 0.1, 0.1);
-        material = new Material(kd1, ks1, 0.1);
+        material = material0;
     }
 
     Hit intersect(const Ray& ray)
@@ -292,13 +289,12 @@ struct Cone : Intersectable
     bool LightIntersect(const Hit& hit)
     {
         float hitCosAlfa = dot(normalize(hit.position - p), normalVector);
-        if (hitCosAlfa > cosf(2 * M_PI * (alfa / 360))) return true;
+        if (hitCosAlfa >= cosf(2 * M_PI * (alfa / 360)))
+            return true;
+        
         return false;
     }
 };
-
-
-
 
 class Camera {
     vec3 eye, lookat, right, up;
@@ -351,14 +347,14 @@ public:
         La = vec3(1, 1, 1);
         
 
-        vec3 lightDirection1(1, -1, 1), Le1(0.5, 0, 0);
+        vec3 lightDirection1(1, -1, 1), Le1(0.8, 0, 0);
         lights.push_back(new Light(lightDirection1, Le1));
-        //vec3 lightDirection2(1, 0, 0), Le2(0, 0.5, 0);
-        //lights.push_back(new Light(lightDirection2, Le2));
-        //vec3 lightDirection3(0, 0, 1), Le3(0, 0, 0.5);
-        //lights.push_back(new Light(lightDirection3, Le3));
+        vec3 lightDirection2(1, 0, 0), Le2(0, 0.5, 0);
+        lights.push_back(new Light(lightDirection2, Le2));
+        vec3 lightDirection3(0, 0, 1), Le3(0, 0, 0.5);
+        lights.push_back(new Light(lightDirection3, Le3));
 
-
+        
         std::vector<vec3> points1{
         vec3(1,0,0),
         vec3(0,-1,0),
@@ -380,7 +376,7 @@ public:
           new Triangle(points1[2],points1[3],points1[5]),
           new Triangle(points1[3],points1[0],points1[5])
         };
-
+       
 
         for (int i = 0; i < platon1.size(); i++)
             objects.push_back(platon1[i]);
@@ -429,16 +425,18 @@ public:
         };
         for (int i = 0; i < platon2.size(); i++)
            objects.push_back(platon2[i]);
-
-        Cone* cone1 = new Cone(vec3(0, 1, 0), 0.25 , 20, vec3(1, -3, 1));
+        Material* m1 = new Material(vec3(0.5, 0.2, 0.2), vec3(0.1, 0.1, 0.1),0.1);
+        Material* m2 = new Material(vec3(0.2, 0.5, 0.2), vec3(0.1, 0.1, 0.1),0.1);
+        Material* m3 = new Material(vec3(0.2, 0.2, 0.5), vec3(0.1, 0.1, 0.1),0.1);
+        Cone* cone1 = new Cone(vec3(0, 1, 0), 0.25 , 20, vec3(1, -2, 1), m1);
         objects.push_back(cone1);
-        //Cone* cone2 = new Cone(vec3(0, 0.5, 0.5), 0.25 , 20, vec3(1, 0, 0));
-        //objects.push_back(cone2);
-        //Cone* cone3 = new Cone(vec3(0.5, 0.5, 0), 0.25 , 20, vec3(0, 0, 1));
-        //objects.push_back(cone3);
-       cones =  std::vector<Cone*>{cone1};
+        Cone* cone2 = new Cone(vec3(0, 0.75, 0.75), 0.25 , 20, vec3(1, -1.5, -1.5), m2);
+        objects.push_back(cone2);
+        Cone* cone3 = new Cone(vec3(0.5, 0.75, 0), 0.25 , 20, vec3(0.5, -1.5, 1),m3);
+        objects.push_back(cone3);
+        cones =  std::vector<Cone*>{cone1, cone2, cone3};
         std::vector<RectangleOwn> roomR = std::vector<RectangleOwn>{
-            RectangleOwn(vec3(1, 0, 0), vec3(1, 1, 0), vec3(1, 1, 1), vec3(1, 0, 1)),
+           RectangleOwn(vec3(1, 0, 0), vec3(1, 1, 0), vec3(1, 1, 1), vec3(1, 0, 1)),
             RectangleOwn(vec3(0, 0, 0), vec3(0, 1, 0), vec3(0, 1, 1), vec3(0, 0, 1)),
             RectangleOwn(vec3(0, 1, 0), vec3(0, 1, 1), vec3(1, 1, 1), vec3(1, 1, 0)),
             RectangleOwn(vec3(0, 0, 0), vec3(0, 0, 1), vec3(1, 0, 1), vec3(1, 0, 0)),
@@ -463,14 +461,14 @@ public:
     Hit firstIntersect(Ray ray) {
         Hit bestHit;
         for (Intersectable* object : objects) {
-            Hit hit = object->intersect(ray); //  hit.t < 0 if no intersection
+            Hit hit = object->intersect(ray); 
             if (hit.t > 0 && (bestHit.t < 0 || hit.t < bestHit.t))  bestHit = hit;
         }
         if (dot(ray.dir, bestHit.normal) > 0) bestHit.normal = bestHit.normal * (-1);
         return bestHit;
     }
     
-    bool shadowIntersect(Ray ray) {	// for directional lights
+    bool shadowIntersect(Ray ray) {	
         for (Intersectable* object : objects) if (object->intersect(ray).t > 0) return true;
         return false;
     }
@@ -496,7 +494,7 @@ public:
                     && hitIntersect.position.y > hit.position.y - 0.1 && hitIntersect.position.y < hit.position.y + 0.1  
                     && hitIntersect.position.z > hit.position.z - .1 && hitIntersect.position.z < hit.position.z + 0.1)
                 {
-                    outRadiance = outRadiance + ((hit.material->ka / 2) * (1 + cosThetaOut)) * lights[i]->Le;
+                    outRadiance = outRadiance + (((hit.material->ka / 2) * (1 + cosThetaOut)) * lights[i]->Le) * (1 / length(hit.position - cones[i]->p));
                 }
             }
         }
@@ -589,10 +587,6 @@ void onMouse(int button, int state, int pX, int pY) {
     }
 }
 
-// Idle event indicating that some time elapsed: do animation here
 void onIdle() {
-    //scene.Animate(0.01f);
-    //scene.build();
-
-    long time = glutGet(GLUT_ELAPSED_TIME); // elapsed time since the start of the program
+    long time = glutGet(GLUT_ELAPSED_TIME); 
 }
