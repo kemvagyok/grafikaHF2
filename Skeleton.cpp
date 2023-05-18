@@ -237,18 +237,12 @@ struct Cone : Intersectable
         Hit hit;
 
         float d2 = dot(ray.dir, ray.dir);
-        float n2 = dot(normalVector, normalVector);
         float cosAlpha2 = pow(cosf(2*M_PI*(alfa/360)),1);
         vec3 dist = ray.start - p;
-        float dist2 = dot(dist, dist);
 
-        //float a = dot(ray.dir ,normalVector) * dot(ray.dir , normalVector) - cosAlpha2 * dot(ray.dir , ray.dir);
         float b = 2.0f * (dot(ray.dir , normalVector) * dot(dist , normalVector) - cosAlpha2 * dot(ray.dir , dist));
         float c = dot(dist , normalVector) * dot(dist , normalVector) - cosAlpha2 * dot(dist , dist);
         float a = pow(dot(ray.dir, normalVector), 2) - d2 * cosAlpha2;
-        //float b = 2 * dot(ray.dir, dist) * (n2 - cosAlpha2);
-        //float c = 2 * dist2 * (n2 - cosAlpha2);
-
         float discr = b * b - 4 * a * c;
 
         if (discr < 0) return hit; else discr = sqrtf(discr);
@@ -259,7 +253,7 @@ struct Cone : Intersectable
         float length1 = dot((r1 - p), normalVector);
         float length2 = dot((r2 - p), normalVector);
       
-        if ((0 <= length1 && length1 <= h) && (0 <= length2 && length2 <= h))
+       if ((0 <= length1 && length1 <= h) && (0 <= length2 && length2 <= h))
        {
             float t; vec3 position;
             if (length2 >= length1) { t = t2; position = r2; }
@@ -291,11 +285,15 @@ struct Cone : Intersectable
             hit.normal = 2 * dot((position - p), normalVector) * normalVector - 2 * (position - p) * cosAlpha2;
             hit.material = material;
             return hit;
-        }
-        
-       
+        }         
        return hit;
-
+    }
+    
+    bool LightIntersect(const Hit& hit)
+    {
+        float hitCosAlfa = dot(normalize(hit.position - p), normalVector);
+        if (hitCosAlfa > cosf(2 * M_PI * (alfa / 360))) return true;
+        return false;
     }
 };
 
@@ -333,10 +331,13 @@ struct Light {
 class Scene {
     std::vector<Intersectable*> objects;
     std::vector<Light*> lights;
+    std::vector<Cone*> cones;
     Camera camera;
     vec3 La;
 public:
     void build() {
+
+
         float dt = M_PI*0;
         vec3 eye = vec3(2, 0.5, 2);
         vec3 vup = vec3(0, 1, 0);
@@ -348,22 +349,27 @@ public:
         camera.set(eye, lookat, vup, fov);
 
         La = vec3(1, 1, 1);
-        vec3 lightDirection(3, 0.5, 3), Le(0.8, 0.8, 0.8);
-        lights.push_back(new Light(lightDirection, Le));
-
         
+
+        vec3 lightDirection1(1, -1, 1), Le1(0.5, 0, 0);
+        lights.push_back(new Light(lightDirection1, Le1));
+        //vec3 lightDirection2(1, 0, 0), Le2(0, 0.5, 0);
+        //lights.push_back(new Light(lightDirection2, Le2));
+        //vec3 lightDirection3(0, 0, 1), Le3(0, 0, 0.5);
+        //lights.push_back(new Light(lightDirection3, Le3));
+
+
         std::vector<vec3> points1{
-        vec3(1,0,0),//0
-        vec3(0,-1,0),//1
-        vec3(-1,0,0),//2
-        vec3(0,1,0),//3
-        vec3(0,0,1),//4
-        vec3(0,0,-1)//5
+        vec3(1,0,0),
+        vec3(0,-1,0),
+        vec3(-1,0,0),
+        vec3(0,1,0),
+        vec3(0,0,1),
+        vec3(0,0,-1)
         };
         for (int i = 0; i < points1.size(); i++)
             points1[i] = points1[i] * 0.25 + vec3(0.85, 0.25, 0.25);
             
-
         std::vector<Triangle*> platon1 = std::vector<Triangle*>{
           new Triangle(points1[1],points1[0],points1[4]),
           new Triangle(points1[2],points1[1],points1[4]),
@@ -424,13 +430,13 @@ public:
         for (int i = 0; i < platon2.size(); i++)
            objects.push_back(platon2[i]);
 
-        Cone* cone1 = new Cone(vec3(0, 1, 0), 0.25 , 20, vec3(1, -1, 1));
+        Cone* cone1 = new Cone(vec3(0, 1, 0), 0.25 , 20, vec3(1, -3, 1));
         objects.push_back(cone1);
-        Cone* cone2 = new Cone(vec3(0, 0.5, 0.5), 0.25 , 20, vec3(1, 0, 0));
-        objects.push_back(cone2);
-        Cone* cone3 = new Cone(vec3(0.5, 0.5, 0), 0.25 , 20, vec3(0,0,1));
-        objects.push_back(cone3);
-
+        //Cone* cone2 = new Cone(vec3(0, 0.5, 0.5), 0.25 , 20, vec3(1, 0, 0));
+        //objects.push_back(cone2);
+        //Cone* cone3 = new Cone(vec3(0.5, 0.5, 0), 0.25 , 20, vec3(0, 0, 1));
+        //objects.push_back(cone3);
+       cones =  std::vector<Cone*>{cone1};
         std::vector<RectangleOwn> roomR = std::vector<RectangleOwn>{
             RectangleOwn(vec3(1, 0, 0), vec3(1, 1, 0), vec3(1, 1, 1), vec3(1, 0, 1)),
             RectangleOwn(vec3(0, 0, 0), vec3(0, 1, 0), vec3(0, 1, 1), vec3(0, 0, 1)),
@@ -441,10 +447,7 @@ public:
         };      
         Room* room = new Room(roomR);
         
-        objects.push_back(room);
-      
-
-           
+        objects.push_back(room);        
     }
 
     void render(std::vector<vec4>& image) {
@@ -478,52 +481,63 @@ public:
         Hit hit = firstIntersect(ray);
         if (hit.t < 0) return vec3(0, 0, 0);
         vec3 outRadiance;
-        for (Light* light : lights) {
-            float cosThetaIn = dot(normalize(ray.dir), normalize(hit.normal));
-            float cosThetaOut = dot(normalize(ray.start - hit.position), normalize(hit.normal));
-            outRadiance = outRadiance+((hit.material->ka / 2) * (1 + cosThetaOut)) * La;
-            float L = 0.2 * (1 + cosThetaIn);
-            if (L >= 0.2 && L <= 0.4) outRadiance = outRadiance +L;
+        float cosThetaIn = dot(normalize(ray.dir), normalize(hit.normal));
+        float cosThetaOut = dot(normalize(ray.start - hit.position), normalize(hit.normal));
+        outRadiance = outRadiance + ((hit.material->ka / 2) * (1 + cosThetaOut)) * La;
+        float L = 0.2 * (1 + cosThetaIn);
+        if (L >= 0.2 && L <= 0.4) outRadiance = outRadiance + L;
+
+        for (int i = 0; i < cones.size(); i+=1 ) {
+            if (cones[i]->LightIntersect(hit))
+            {
+                Ray ray = Ray(cones[i]->p, normalize(hit.position - cones[i]->p));
+                Hit hitIntersect = firstIntersect(ray);
+                if (hitIntersect.position.x > hit.position.x - 0.1 && hitIntersect.position.x < hit.position.x +  0.1 
+                    && hitIntersect.position.y > hit.position.y - 0.1 && hitIntersect.position.y < hit.position.y + 0.1  
+                    && hitIntersect.position.z > hit.position.z - .1 && hitIntersect.position.z < hit.position.z + 0.1)
+                {
+                    outRadiance = outRadiance + ((hit.material->ka / 2) * (1 + cosThetaOut)) * lights[i]->Le;
+                }
+            }
         }
         return outRadiance;
     }
 };
 
 
-GPUProgram gpuProgram; // vertex and fragment shaders
+GPUProgram gpuProgram;
 Scene scene;
-unsigned int vao;	   // virtual world on the GPU
+unsigned int vao;	 
 
 class FullScreenTexturedQuad {
-    unsigned int vao;	// vertex array object id and texture id
+    unsigned int vao;
     Texture texture;
 public:
     FullScreenTexturedQuad(int windowWidth, int windowHeight, std::vector<vec4>& image)
         : texture(windowWidth, windowHeight, image)
     {
-        glGenVertexArrays(1, &vao);	// create 1 vertex array object
-        glBindVertexArray(vao);		// make it active
+        glGenVertexArrays(1, &vao);	
+        glBindVertexArray(vao);	
 
-        unsigned int vbo;		// vertex buffer objects
-        glGenBuffers(1, &vbo);	// Generate 1 vertex buffer objects
+        unsigned int vbo;		
+        glGenBuffers(1, &vbo);	
 
-        // vertex coordinates: vbo0 -> Attrib Array 0 -> vertexPosition of the vertex shader
-        glBindBuffer(GL_ARRAY_BUFFER, vbo); // make it active, it is an array
-        float vertexCoords[] = { -1, -1,  1, -1,  1, 1,  -1, 1 };	// two triangles forming a quad
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertexCoords), vertexCoords, GL_STATIC_DRAW);	   // copy to that part of the memory which is not modified 
+     
+        glBindBuffer(GL_ARRAY_BUFFER, vbo); 
+        float vertexCoords[] = { -1, -1,  1, -1,  1, 1,  -1, 1 };	
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertexCoords), vertexCoords, GL_STATIC_DRAW);	   
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);     // stride and offset: it is tightly packed
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);     
     }
 
     void Draw() {
-        glBindVertexArray(vao);	// make the vao and its vbos active playing the role of the data source
+        glBindVertexArray(vao);	
         gpuProgram.setUniform(texture, "textureUnit");
-        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);	// draw two triangles forming a quad
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);	
     }
 };
 FullScreenTexturedQuad* fullScreenTexturedQuad;
 
-// Initialization, create an OpenGL context
 void onInitialization() {
     glViewport(0, 0, windowWidth, windowHeight);
     scene.build();
@@ -534,40 +548,32 @@ void onInitialization() {
     long timeEnd = glutGet(GLUT_ELAPSED_TIME);
     printf("Rendering time: %d milliseconds\n", (timeEnd - timeStart));
 
-    // copy image to GPU as a texture
     fullScreenTexturedQuad = new FullScreenTexturedQuad(windowWidth, windowHeight, image);
 
-    // create program for the GPU
     gpuProgram.create(vertexSource, fragmentSource, "fragmentColor");
 }
 
-// Window has become invalid: Redraw
 void onDisplay() {
     fullScreenTexturedQuad->Draw();
     glutSwapBuffers();
 }
 
-// Key of ASCII code pressed
 void onKeyboard(unsigned char key, int pX, int pY) {
     if (key == 'd') glutPostRedisplay();         // if d, invalidate display, i.e. redraw
 }
 
-// Key of ASCII code released
 void onKeyboardUp(unsigned char key, int pX, int pY) {
 }
 
-// Move mouse with key pressed
-void onMouseMotion(int pX, int pY) {	// pX, pY are the pixel coordinates of the cursor in the coordinate system of the operation system
-    // Convert to normalized device space
-    float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
+void onMouseMotion(int pX, int pY) {	
+    float cX = 2.0f * pX / windowWidth - 1;	
     float cY = 1.0f - 2.0f * pY / windowHeight;
     printf("Mouse moved to (%3.2f, %3.2f)\n", cX, cY);
 }
 
 // Mouse click event
-void onMouse(int button, int state, int pX, int pY) { // pX, pY are the pixel coordinates of the cursor in the coordinate system of the operation system
-    // Convert to normalized device space
-    float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
+void onMouse(int button, int state, int pX, int pY) { 
+    float cX = 2.0f * pX / windowWidth - 1;	
     float cY = 1.0f - 2.0f * pY / windowHeight;
 
     const char* buttonStat = "";
